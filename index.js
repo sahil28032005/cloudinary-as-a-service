@@ -3,7 +3,8 @@ const multer = require("multer");
 const path = require("node:path");
 const app = express()
 const port = 3000;
-const connectToclouDinary=require('./config/cloudinary');
+const connectToclouDinary = require('./config/cloudinary');
+const cloudinary = require('cloudinary').v2;
 
 //starter configuration methids fro cinnections
 connectToclouDinary();
@@ -41,15 +42,34 @@ const upload = multer({
     fileFilter: fileFilterConfig,
 });
 //make controller for uplodaing single  image
-app.post("/upload", upload.single("file"), (req, res) => {
+app.post("/upload", upload.single("file"), async (req, res) => {
     try {
         const fileData = req.file;
         if (!fileData) {
             return res.status(400).send('No file uploaded.');
         }
-        console.log('filedata', fileData);
-
-        res.status(201).send('Image uploaded successfully!');
+        console.log("fileData", fileData);//filedata.path gives local path to send as template to clodinary
+        //code to uplload on cloud
+        const uploadResult = await cloudinary.uploader
+            .upload(
+                fileData.path, {
+                public_id: fileData.filename,
+            }
+            )
+            .catch((error) => {
+                console.log(error);
+            });
+        console.log(uploadResult);
+        //image optimization and url retrival 
+        const optimizeUrl = await cloudinary.url(fileData.filename, {
+            fetch_format: 'auto',
+            quality: 'auto'
+        });
+        res.status(201).send({
+            success: true,
+            message: 'image upload with optimizations',
+            url: optimizeUrl
+        });
     }
     catch (err) {
         res.status(404).send({
@@ -61,9 +81,20 @@ app.post("/upload", upload.single("file"), (req, res) => {
 
 });
 //contoerller for uploading multiple images
-app.post("/multiple-upload", upload.array('file', 10), (req, res) => {
-    var file = req.body;
-    res.end();
+app.post("/multiple-upload", upload.array('file', 10), async (req, res) => {
+    var file = await req.files;
+    console.log('filedata', file);
+    const optimizedUrls=[];
+    for (const image in file) {
+        // console.log('filedata', file[image].path);
+        const result = await cloudinary.uploader.upload(file[image].path);
+        const optimizeUrl = await cloudinary.url(file[image].filename, {
+            fetch_format: 'auto',
+            quality: 'auto'
+        });
+        optimizedUrls.push(optimizeUrl);
+    }
+    res.send(JSON.stringify(optimizedUrls));
 });
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
