@@ -23,7 +23,7 @@ const storageConfig = multer.diskStorage({
 });
 const fileFilterConfig = function (req, file, cb) {
     if (file.mimetype === "image/jpeg"
-        || file.mimetype === "image/png") {
+        || file.mimetype === "image/png" || file.mimetype === "video/mp4") {
         // calling callback with true
         // as mimetype of file is image
         cb(null, true);
@@ -35,10 +35,10 @@ const fileFilterConfig = function (req, file, cb) {
 const upload = multer({
     // applying storage and file filter
     storage: storageConfig,
-    limits: {
-        // limits file size to 5 MB
-        fileSize: 1024 * 1024 * 5
-    },
+    // limits: {
+    //     // limits file size to 5 MB
+    //     fileSize: 1024 * 1024 * 5
+    // },
     fileFilter: fileFilterConfig,
 });
 //make controller for uplodaing single  image
@@ -84,7 +84,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 app.post("/multiple-upload", upload.array('file', 10), async (req, res) => {
     var file = await req.files;
     console.log('filedata', file);
-    const optimizedUrls=[];
+    const optimizedUrls = [];
     for (const image in file) {
         // console.log('filedata', file[image].path);
         const result = await cloudinary.uploader.upload(file[image].path);
@@ -95,6 +95,25 @@ app.post("/multiple-upload", upload.array('file', 10), async (req, res) => {
         optimizedUrls.push(optimizeUrl);
     }
     res.send(JSON.stringify(optimizedUrls));
+});
+//connteoller for video uploads
+app.post("/upload-video", upload.single("video"), async (req, res) => {
+    try {
+        const video = req.file;
+        console.log(video.path);
+        //cloudinary uploader endpoints
+        await cloudinary.uploader
+            .upload(video.path,
+                {
+                    resource_type: "video", public_id: video.filename,
+                    overwrite: true, notification_url: "https://mysite.example.com/notify_endpoint"
+                })
+            .then(result => console.log(result));
+
+    }
+    catch (err) {
+        res.status(500).send(err.message);
+    }
 });
 app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
